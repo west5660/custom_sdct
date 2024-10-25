@@ -1,0 +1,272 @@
+import asyncio
+from urllib.parse import urlparse
+from crowd_sdk.tagme import TagmeClientAdvanced
+
+import json
+import os
+import pandas as pd
+
+file_name_info = ['25216f14911f4933b4157a019e2032b8', '06863be95da44993b16fb218fd35a560',
+                  '400d4398d2fd449abbbda2e0254a4580', '324c32ae4d9140368a46ec8b94116892',
+                  '30e8ee1877e24353868c657b72f6dc37', '18d80df805fd4ea2a0d1aeae4bde2308',
+                  '3a16da280ab94b77b8ce2a9754adc169', '1e940fae2ad24c59aa21b294a761faba',
+                  '0ece8e2a6ffb4da9a3965f18b9ccfbcb', '0ad7efab231a4cba98d0c4c162763aa7']
+
+
+def construct_config(config: dict) -> dict:
+    if config['netloc'] == 'tagme.apps.prom-gen.sigma.sbrf.ru':
+        config['config_path'] = os.path.expanduser('~/configs/.sigma.cfg')
+        config['task_params'] = ['K3', '-']
+    elif config['netloc'] == 'tagme.sberdevices.ru':
+        config['config_path'] = os.path.expanduser('~/configs/.cloud.cfg')
+    return config
+
+
+def parse_url(tg_url: str) -> dict:
+    parsed_url = urlparse(tg_url)
+    config = parsed_url.path.split('/')
+    try:
+        return {
+            'netloc': parsed_url.netloc,
+            'org_id': config[2],
+            'project_id': config[4],
+            'task_id': config[6]
+        }
+    except IndexError:
+        raise ValueError('Вы ввели некорректный URL.')
+
+
+def read_excel():
+    data_folder = 'data'
+
+    files = [filename for filename in os.listdir(data_folder) if filename.endswith('.xlsx')]
+
+    if not files:
+        print('Ошибка: в папке "data" отсутствуют файлы Excel (.xlsx)')
+        return None
+
+    print('Доступные файлы Excel для обработки:')
+    for i, filename in enumerate(files, 1):
+        print(f"{i}. {filename}")
+
+    try:
+        choice = int(input("Выберите номер файла для чтения: "))
+        selected_file = files[choice - 1]
+        file_path = os.path.join(data_folder, selected_file)
+
+        data = pd.read_excel(file_path)
+        print(f"Файл '{selected_file}' успешно прочитан.")
+
+        filtered_data = data[data['UUID'].isin(file_name_info)]
+        return filtered_data
+    except (ValueError, IndexError):
+        print("Ошибка: Некорректный выбор файла")
+        return None
+
+
+def create_marks(filtered_data):
+    entities = [
+        {
+            "id": "O",
+            "name": "O",
+            "color": "#C0C0C0",
+            "hotKey": "1"
+        },
+        {
+            "id": "B-CITY",
+            "name": "B-CITY",
+            "color": "#FF00FF",
+            "hotKey": "2"
+        },
+        {
+            "id": "B-NUM",
+            "name": "B-NUM",
+            "color": "#800080",
+            "hotKey": "3"
+        },
+        {
+            "id": "I-NUM",
+            "name": "I-NUM",
+            "color": "#FF0000",
+            "hotKey": "4"
+        },
+        {
+            "id": "B-URL",
+            "name": "B-URL",
+            "color": "#800000",
+            "hotKey": "5"
+        },
+        {
+            "id": "I-URL",
+            "name": "I-URL",
+            "color": "#FFFF00",
+            "hotKey": "6"
+        },
+        {
+            "id": "B-SNM",
+            "name": "B-SNM",
+            "color": "#808000",
+            "hotKey": "7"
+        },
+        {
+            "id": "B-FNM",
+            "name": "B-FNM",
+            "color": "#000000",
+            "hotKey": "8"
+        },
+        {
+            "id": "I-FNM",
+            "name": "I-FNM",
+            "color": "#008000",
+            "hotKey": "9"
+        },
+        {
+            "id": "B-COUNTRY",
+            "name": "B-COUNTRY",
+            "color": "#00FFFF",
+            "hotKey": "0"
+        },
+        {
+            "id": "B-BANK",
+            "name": "B-BANK",
+            "color": "#008080",
+            "hotKey": "q"
+        },
+        {
+            "id": "B-DATE",
+            "name": "B-DATE",
+            "color": "#0000FF",
+            "hotKey": "w"
+        },
+        {
+            "id": "I-DATE",
+            "name": "I-DATE",
+            "color": "#000080",
+            "hotKey": "e"
+        },
+        {
+            "id": "B-IP",
+            "name": "B-IP",
+            "color": "#BC8F8F",
+            "hotKey": "r"
+        },
+        {
+            "id": "I-IP",
+            "name": "I-IP",
+            "color": "#F4A460",
+            "hotKey": "t"
+        },
+        {
+            "id": "B-PNM",
+            "name": "B-PNM",
+            "color": "#D2691E",
+            "hotKey": "y"
+        },
+        {
+            "id": "B-FIAS",
+            "name": "B-FIAS",
+            "color": "#A52A2A",
+            "hotKey": "u"
+        },
+        {
+            "id": "B-OPF",
+            "name": "B-OPF",
+            "color": "#800000",
+            "hotKey": "i"
+        },
+        {
+            "id": "I-BANK",
+            "name": "I-BANK",
+            "color": "#F5DEB3",
+            "hotKey": "o"
+        },
+        {
+            "id": "B-SBER_URL",
+            "name": "B-SBER_URL",
+            "color": "#6A5ACD",
+            "hotKey": "p"
+        },
+        {
+            "id": "I-SBER_URL",
+            "name": "I-SBER_URL",
+            "color": "#00FFFF",
+            "hotKey": "a"
+        },
+        {
+            "id": "I-PNM",
+            "name": "I-PNM",
+            "color": "#E0FFFF",
+            "hotKey": "s"
+        },
+        {
+            "id": "B-INNFL",
+            "name": "B-INNFL",
+            "color": "#7FFFD4",
+            "hotKey": "d"
+        },
+        {
+            "id": "I-OPF",
+            "name": "I-OPF",
+            "color": "#00FF00",
+            "hotKey": "f"
+        },
+        {
+            "id": "B-CARD",
+            "name": "B-CARD",
+            "color": "#FF69B4",
+            "hotKey": "g"
+        },
+        {
+            "id": "I-FIAS",
+            "name": "I-FIAS",
+            "color": "#808000",
+            "hotKey": "h"
+        }]
+
+    meta_data = []
+    for entity_id, group in filtered_data.groupby('UUID'):
+        marks = []
+        file_name = entity_id
+        for index, row in enumerate(group.itertuples(), start=0):
+            entity_id = row.model_tag
+            for entity in entities:
+                if entity_id == entity['name']:
+                    entity_id = entity['id']
+                    break
+            message_id = f"{file_name}-{index}"
+            marks.append({"entityId": entity_id, "messageId": message_id})
+
+
+        file_meta = {
+            'filename': f"{file_name}.csv",
+            'data': {
+                'premarkup': {
+                    'marks': marks
+                }
+            }}
+        meta_data.append(file_meta)
+    # print(meta_data)
+    return meta_data
+
+
+async def main():
+    filtered_data = read_excel()
+    if filtered_data is None:
+        return
+    meta_data = create_marks(filtered_data)
+
+    task_url = input("Введите ссылку на задачу: ")
+    task_info = parse_url(task_url)
+    config = construct_config({'netloc': task_info['netloc']})
+
+    client = TagmeClientAdvanced(config['config_path'])
+
+    task_id = task_info.get('task_id')
+    organization_id = task_info.get('org_id')
+
+    await client.update_meta_data(task_id=task_id, organization_id=organization_id, data=meta_data)
+    await client.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
